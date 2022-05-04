@@ -18,40 +18,50 @@ import java.util.List;
 import javax.swing.JComponent;
 
 import tri.types.Line;
-import tri.types.Sector;
-import tri.types.Triangle;
+import tri.types.RenderableSector;
 import tri.types.Vertex;
 
 public class Renderer extends JComponent {
-	private static final int	DEFAULT_WIDTH	= 960;
-	private static final int	DEFAULT_HEIGHT	= 720;
-	
-	public boolean				antialias		= false;
+	private static final int			DEFAULT_WIDTH	= 960;
+	private static final int			DEFAULT_HEIGHT	= 720;
 
-	public double				offsetX			= 0;
-	public double				offsetY			= 0;
-	public double				scale			= 1;
+	public boolean						antialias		= false;
+	public boolean						drawGrid		= true;
 
-	private double				virtualWidth	= DEFAULT_WIDTH;
-	private double				virtualHeight	= DEFAULT_HEIGHT;
-	private double				virtualTop		= virtualHeight / 2;
-	private double				virtualRight	= virtualWidth / 2;
-	private double				virtualBottom	= virtualTop - virtualHeight;
-	private double				virtualLeft		= virtualRight - virtualWidth;
+	public Color						backgroundColor	= Color.BLACK;
+	/** color of the X and Y axes */
+	public Color						axisColor		= Color.ORANGE;
+	/** color of a large grid square */
+	public Color						gridColorMajor	= Color.LIGHT_GRAY;
+	/** color of a small grid square */
+	public Color						gridColorMinor	= Color.DARK_GRAY;
 
-	private int					gridSize		= 64;
+	/** size of a grid square */
+	public int							gridSizeMinor	= 64;
+	/** number of small grid squares in a large grid square */
+	public int							gridSizeMajor	= 8;
 
-	public final List<Vertex>	vertices		= new ArrayList<>();
-	public final List<Line>		lines			= new ArrayList<>();
-	public final List<Triangle>	triangles		= new ArrayList<>();
+	public double						offsetX			= 0;
+	public double						offsetY			= 0;
+	public double						scale			= 1;
 
-	private Line2D.Float		lineShape		= new Line2D.Float(); 
-	private Polygon				triShape		= new Polygon();
-	private Rectangle2D.Float	vertShape		= new Rectangle2D.Float();
-	private Rectangle2D			triAnchor		= new Rectangle2D.Float(0, 0, Sector.FLAT_SIZE, -Sector.FLAT_SIZE);
-	
-	private boolean				showCoords		= false;
-	private int					mouseX, mouseY;
+	private double						virtualWidth	= DEFAULT_WIDTH;
+	private double						virtualHeight	= DEFAULT_HEIGHT;
+	private double						virtualTop		= virtualHeight / 2;
+	private double						virtualRight	= virtualWidth / 2;
+	private double						virtualBottom	= virtualTop - virtualHeight;
+	private double						virtualLeft		= virtualRight - virtualWidth;
+	private Rectangle2D					virtualBounds	= new Rectangle2D.Double(virtualLeft, virtualBottom, virtualWidth, virtualHeight);
+
+	public final List<Vertex>			vertices		= new ArrayList<>();
+	public final List<Line>				lines			= new ArrayList<>();
+	public final List<RenderableSector>	sectors			= new ArrayList<>();
+
+	private Line2D.Float				lineShape		= new Line2D.Float();
+	private Rectangle2D.Float			vertShape		= new Rectangle2D.Float();
+
+	private boolean						showCoords		= false;
+	private int							mouseX, mouseY;
 
 	Renderer() {
 		setPreferredSize(new Dimension(960, 720));
@@ -86,7 +96,7 @@ public class Renderer extends JComponent {
 				x = e.getX();
 				y = e.getY();
 			}
-			
+
 			@Override
 			public void mouseMoved(MouseEvent e) {
 				showCoords = true;
@@ -95,7 +105,7 @@ public class Renderer extends JComponent {
 				mouseY = (int) ((getHeight() / 2 - e.getY()) * scale + offsetY);
 				repaint();
 			}
-			
+
 			@Override
 			public void mouseExited(MouseEvent e) {
 				showCoords = false;
@@ -114,6 +124,7 @@ public class Renderer extends JComponent {
 						break;
 					case KeyEvent.VK_C:
 						Demo.loadConfig();
+						repaint();
 						break;
 					case KeyEvent.VK_E:
 						resetMap();
@@ -132,7 +143,7 @@ public class Renderer extends JComponent {
 	public void resetMap() {
 		vertices.clear();
 		lines.clear();
-		triangles.clear();
+		sectors.clear();
 	}
 
 	public void positionAndScaleToFitContent(Rectangle contentBounds) {
@@ -147,6 +158,7 @@ public class Renderer extends JComponent {
 		virtualRight = offsetX + virtualWidth / 2.0;
 		virtualBottom = virtualTop - virtualHeight;
 		virtualLeft = virtualRight - virtualWidth;
+		virtualBounds.setRect(virtualLeft, virtualBottom, virtualWidth, virtualHeight);
 	}
 
 	@Override
@@ -161,23 +173,25 @@ public class Renderer extends JComponent {
 		g2.scale(1 / scale, -1 / scale);
 		g2.translate(-offsetX, -offsetY);
 
-		drawTriangles(g2);
-		
+		drawSectors(g2);
+
 		Object hint = antialias ? RenderingHints.VALUE_ANTIALIAS_ON : RenderingHints.VALUE_ANTIALIAS_OFF;
 		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, hint);
-		
-		drawGridlines(g2);
+
+		if(drawGrid) {			
+			drawGridlines(g2);
+		}
 		drawLines(g2);
 		drawVertices(g2);
 
 		g2.setTransform(trans);
-		
-		if(showCoords) {			
+
+		if(showCoords) {
 			String str = String.format("(%d, %d)", mouseX, mouseY);
 			int width = g.getFontMetrics().stringWidth(str);
 			int x = getWidth() - width - 5;
 			int y = getHeight() - 5;
-			g.setColor(Color.BLACK);
+			g.setColor(backgroundColor);
 			g.drawString(str, x + 2, y + 2);
 			g.drawString(str, x - 2, y - 2);
 			g.setColor(Color.WHITE);
@@ -186,56 +200,48 @@ public class Renderer extends JComponent {
 	}
 
 	private void drawBackground(Graphics g) {
-		g.setColor(Color.BLACK);
+		g.setColor(backgroundColor);
 		g.fillRect(0, 0, getWidth(), getHeight());
 	}
 
 	private Color gridLineColor(int val) {
-		if(val == 0) return Color.ORANGE;
-		if((val / gridSize) % 8 == 0) return Color.LIGHT_GRAY;
-		return Color.DARK_GRAY;
+		if(val == 0) return axisColor;
+		if((val / gridSizeMinor) % gridSizeMajor == 0) return gridColorMajor;
+		return gridColorMinor;
 	}
 
 	private void drawGridlines(Graphics2D g) {
-		g.setColor(Color.DARK_GRAY);
 		g.setStroke(new BasicStroke((float) scale));
 
 		int gridStart = (int) virtualLeft;
-		gridStart -= (gridStart % gridSize);
+		gridStart -= (gridStart % gridSizeMinor);
 		Line2D.Float line = new Line2D.Float();
 		line.y1 = (float) virtualTop;
 		line.y2 = (float) virtualBottom;
-		for(int x = gridStart; x <= virtualRight; x += gridSize) {
+		for(int x = gridStart; x <= virtualRight; x += gridSizeMinor) {
 			line.x1 = line.x2 = x;
 			g.setColor(gridLineColor(x));
 			g.draw(line);
 		}
 
 		gridStart = (int) virtualBottom;
-		gridStart -= (gridStart % gridSize);
+		gridStart -= (gridStart % gridSizeMinor);
 		line.x1 = (float) virtualLeft;
 		line.x2 = (float) virtualRight;
-		for(int y = gridStart; y <= virtualTop; y += gridSize) {
+		for(int y = gridStart; y <= virtualTop; y += gridSizeMinor) {
 			line.y1 = line.y2 = y;
 			g.setColor(gridLineColor(y));
 			g.draw(line);
 		}
 	}
 
-	private void drawTriangles(Graphics2D g) {
+	private void drawSectors(Graphics2D g) {
 		// Not using a foreach so we don't have the console spammed with concurrent modification issues
-		for(int i = 0; i < triangles.size(); i++) {
-			Triangle tri = triangles.get(i);
-			// can't recycle TexturePaint
-			TexturePaint tp = new TexturePaint(tri.texture, triAnchor);
-			g.setPaint(tp);
-			
-			triShape.reset();
-			triShape.addPoint(tri.a.x, tri.a.y);
-			triShape.addPoint(tri.b.x, tri.b.y);
-			triShape.addPoint(tri.c.x, tri.c.y);
-			
-			g.fill(triShape);
+		for(int i = 0; i < sectors.size(); i++) {
+			RenderableSector sector = sectors.get(i);
+			if(virtualBounds.intersects(sector.bounds)) {
+				sector.paint(g);
+			}
 		}
 	}
 
@@ -244,9 +250,9 @@ public class Renderer extends JComponent {
 		for(int i = 0; i < lines.size(); i++) {
 			Line line = lines.get(i);
 			if(line.color == null) continue;
-			
+
 			lineShape.setLine(line.start.x, line.start.y, line.end.x, line.end.y);
-			
+
 			g.setColor(line.color);
 			g.draw(lineShape);
 			lineShape.setLine(line.midX, line.midY, line.midX + line.tagX * scale, line.midY + line.tagY * scale);
@@ -260,15 +266,15 @@ public class Renderer extends JComponent {
 		for(int i = 0; i < vertices.size(); i++) {
 			Vertex v = vertices.get(i);
 			if(v.color == null) continue;
-			
+
 			vertShape.x = v.x - halfSize;
 			vertShape.y = v.y - halfSize;
-			
+
 			g.setColor(v.color);
 			g.fill(vertShape);
 		}
 	}
-	
+
 	public void addLine(Line line) {
 		if(!lines.contains(line)) {
 			lines.add(line);
@@ -276,7 +282,7 @@ public class Renderer extends JComponent {
 			addVertex(line.end);
 		}
 	}
-	
+
 	public void addVertex(Vertex v) {
 		if(!vertices.contains(v)) {
 			vertices.add(v);

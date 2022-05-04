@@ -1,8 +1,4 @@
-package tri;
-
-import tri.types.Line;
-import tri.types.Sector;
-import tri.types.Vertex;
+package tri.types;
 
 public final class TriangulationState {
 	public Sector sector;

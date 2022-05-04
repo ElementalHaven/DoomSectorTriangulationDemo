@@ -6,11 +6,11 @@ Various settings, including WADs, map, delays between each action, and more are 
 
 ## Requirements
 
-Requires JDK 8 to build / Java 8 to run
+Requires JDK 8 or newer to build / Java 8 or newer to run
 
 ## Controls
 
-- **C**: Reload the config file. All but the WADs & current map specified will take effect immediately.
+- **C**: Reload the config file. All but lighting, the WADs specified, and the current map specified will take effect immediately.
 - **E**: Clear/empty/erase the viewport of any map data.
 - **R**: Start/restart triangulation of the current map.
 - **S**: Suspend/resume triangulation.
@@ -29,11 +29,8 @@ That is something that probably won't be done for a while by me, if at all.
 ## Possible Improvements
 
 - Making keys configurable
-- Grouping rendered triangles by sector and having a bounding box for it, using the box for culling and having a single TexturePaint object that's stored and used once per sector
 - Merging adjacent linedefs with identical properties(or identical with one of them flipped)
 - Relocating and scaling viewport to fit the entirety of the map on start of triangulation if a config option is set
-- Adding a config option for background color
-- Adding config options for grid size and colors
 - Drawing sky textures where appropriate
 - Adding config options for the color of each line type during triangulation (inactive sector, active sector, generated line, starting line, etc)
 - The fix for broken IWAD data (and probably a number of old PWADs) mentioned above

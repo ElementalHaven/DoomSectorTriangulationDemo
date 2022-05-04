@@ -35,6 +35,7 @@ public class TriangulateThread extends Thread {
 	public static int			subvertTime		= 512;
 	public static int			startSector		= 0;
 	public static int			endSector		= -1;
+	public static boolean		renderLit		= false;
 
 	private static int toColor(byte[] pal, int off) {
 		int r = pal[off] & 0xFF;
@@ -102,25 +103,49 @@ public class TriangulateThread extends Thread {
 		}
 		
 		// applying the colormap isn't explicitly needed for iwad resources, but it's probably a good idea regardless -Liz (4/15/22)
-		Lump colormap = wad.getLump("COLORMAP");
-		if(colormap != null && colormap.data != null && colormap.data.capacity() >= PALETTE_COLORS) {
-			int[] tmp = new int[PALETTE_SIZE];
-			colormap.data.clear();
-			for(int i = 0; i < PALETTE_COLORS; i++) {
-				tmp[i] = palette[colormap.data.get() & 0xFF];
-			}
-			palette = tmp;
-		}
 		return palette;
+	}
+	
+	private int[][] getColormaps(int count) {
+		int[][] maps = new int[count][PALETTE_COLORS];
+		
+		Lump lump = wad.getLump("COLORMAP");
+		ByteBuffer data = lump == null ? null : lump.data;
+		if(data != null) {
+			data.clear();
+		}
+					
+		for(int mapIdx = 0; mapIdx < count; mapIdx++) {
+			if(data != null && data.remaining() >= PALETTE_COLORS) {
+				for(int palIdx = 0; palIdx < PALETTE_COLORS; palIdx++) {
+					maps[mapIdx][palIdx] = data.get() & 0xFF;
+				}
+			} else {
+				// use dummy values if the colormap doesn't exist
+				for(int palIdx = 0; palIdx < PALETTE_COLORS; palIdx++) {
+					maps[mapIdx][palIdx] = palIdx;
+				}
+			}
+		}
+		return maps;
 	}
 
 	private void loadTextures() {
+		// storing the count now both lets us get an arbitrary number of colormaps(only what we need)
+		// and also makes sure that a config update at the current time wont break anything
+		int cmapCount = renderLit ? 32 : 1;
 		Map<String, BufferedImage> textures = new HashMap<>();
 		int[] palette = getPalette();
+		int[][] colormaps = getColormaps(cmapCount);
 
 		for(Sector sector : sectors) {
 			String texName = sector.floorTexName;
-			BufferedImage tex = textures.get(texName);
+			// convert brightness to colormap by clamping, inverting, and dividing by total number of brightness colormaps
+			int cmapIdx = (255 - Math.max(0, Math.min(sector.lightLevel, 255))) * cmapCount / 256;
+			int[] colormap = colormaps[cmapIdx];
+			// use fact that texture names are ASCII to make sure our delimiter can't possibly exist in a texture name
+			String cacheName = texName + '\u0100' + cmapIdx;
+			BufferedImage tex = textures.get(cacheName);
 			if(tex == null) {
 				final int size = Sector.FLAT_SIZE;
 				tex = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
@@ -132,12 +157,12 @@ public class TriangulateThread extends Thread {
 					lump.data.get(indices);
 				}
 				for(int i = 0; i < colors.length; i++) {
-					colors[i] = palette[indices[i] & 0xFF];
+					colors[i] = palette[colormap[indices[i] & 0xFF]];
 				}
 				tex.setRGB(0, 0, size, size, colors, 0, size);
-				textures.put(texName, tex);
+				textures.put(cacheName, tex);
 			}
-			sector.floorTex = tex;
+			sector.renderable = new RenderableSector(tex);
 		}
 	}
 
@@ -213,10 +238,11 @@ public class TriangulateThread extends Thread {
 			Sector sector = new Sector();
 			sector.id = sectors.size();
 			sectors.add(sector);
-			WADFile.skip(bufSectors, 4);
+			WADFile.skip(bufSectors, 4); // skip heights
 			sector.floorTexName = WADFile.readString(bufSectors, 8);
-			// the only thing I might care about is light level
-			WADFile.skip(bufSectors, 14);
+			WADFile.skip(bufSectors, 8); // skip ceiling texture name
+			sector.lightLevel = bufSectors.getShort();
+			WADFile.skip(bufSectors, 4); // skip tag & type
 		}
 
 		bufSides.clear();
@@ -243,11 +269,11 @@ public class TriangulateThread extends Thread {
 			WADFile.skip(bufLines, 6);
 
 			int side = bufLines.getShort() & 0xFFFF;
-			line.front = side == Side.NO_SIDEDEF ? null : sides.get(side);
+			line.front = side == WADFile.NO_SIDEDEF ? null : sides.get(side);
 			if(line.front != null) line.front.addLine(line);
 
 			side = bufLines.getShort() & 0xFFFF;
-			line.back = side == Side.NO_SIDEDEF ? null : sides.get(side);
+			line.back = side == WADFile.NO_SIDEDEF ? null : sides.get(side);
 			if(line.back != null) line.back.addLine(line);
 
 			lines.add(line);
@@ -377,7 +403,8 @@ public class TriangulateThread extends Thread {
 		} while((currentLine.end != start) && (linesChecked < lineCount * 2));
 		
 		currentLine.color = Line.defaultColor;
-		update();
+		// we're using the normal sleep time, but we don't want to delay if the user wanted to skip rendering the fixing process
+		update(fixTime == 0 ? 0 : sleepTime);
 	}
 	
 	private void mergeLineSegments() {
@@ -443,6 +470,7 @@ public class TriangulateThread extends Thread {
 		for(int sectorIdx = startSec; sectorIdx < endSec; sectorIdx++) {
 			//System.out.println("Sector " + sectorIdx);
 			Sector sector = sectors.get(sectorIdx);
+			Demo.renderer.sectors.add(sector.renderable);
 			
 			//System.out.println("  Prepping for triangulation");
 			sector.prepForTriangulation();
@@ -589,7 +617,7 @@ public class TriangulateThread extends Thread {
 						update();
 					}
 					
-					Demo.renderer.triangles.add(triangle);
+					sector.renderable.addTriangle(triangle);
 					resetColors(state);
 					update();
 					

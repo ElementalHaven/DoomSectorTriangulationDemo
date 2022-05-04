@@ -3,8 +3,6 @@ package tri.types;
 import java.awt.image.BufferedImage;
 import java.util.List;
 
-import tri.TriangulationState;
-
 public class Triangle {
 	private static int determinePointSide(Vertex a, Vertex b, Vertex c) {
 		// I don't understand the math, but I want to say this is computing the cross product

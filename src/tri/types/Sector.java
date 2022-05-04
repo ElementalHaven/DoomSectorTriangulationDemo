@@ -11,6 +11,8 @@ public class Sector {
 
 	public int				id;
 	public BufferedImage	floorTex;
+	public RenderableSector	renderable;
+	public short			lightLevel;
 	public String			floorTexName;
 	public List<Line>		lines			= new ArrayList<>();
 
@@ -23,7 +25,7 @@ public class Sector {
 			linesToProcess.add(line);
 		}
 	}
-	
+
 	public Line findOrCreateLine(Vertex a, Vertex b) {
 		Line line = new Line();
 		line.generated = true;
@@ -45,13 +47,13 @@ public class Sector {
 		}
 		return line;
 	}
-	
+
 	public void removeAllLines() {
 		for(int lineIdx = linesToProcess.size() - 1; lineIdx >= 0; lineIdx--) {
 			linesToProcess.get(lineIdx).remove(this);
 		}
 	}
-	
+
 	/**
 	 * Get the vertex furthest north of all the vertices on the leftmost edge of this sector that have yet to be processed
 	 */
@@ -63,7 +65,7 @@ public class Sector {
 		}
 		return best;
 	}
-	
+
 	public void prepForTriangulation() {
 		//System.out.println("Prepping sector for triangulation");
 		vertsToProcess.clear();

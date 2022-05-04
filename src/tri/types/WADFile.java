@@ -8,6 +8,8 @@ import java.nio.channels.FileChannel;
 import java.nio.file.StandardOpenOption;
 
 public class WADFile {
+	public static final int NO_SIDEDEF = 0xFFFF;
+	
 	public static String readString(ByteBuffer buf, int maxChars) {
 		byte[] tmp = new byte[maxChars];
 		buf.get(tmp);

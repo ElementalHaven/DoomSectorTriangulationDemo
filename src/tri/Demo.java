@@ -1,5 +1,6 @@
 package tri;
 
+import java.awt.Color;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -78,6 +79,9 @@ public class Demo {
 					case "antialias":
 						renderer.antialias = parseAsBoolean(value);
 						break;
+					case "renderlit":
+						TriangulateThread.renderLit = parseAsBoolean(value);
+						break;
 					case "vertextime":
 						TriangulateThread.vertexSleepTime = parseAsInt(value, "Vertex sleep time", 0, TriangulateThread.vertexSleepTime);
 						break;
@@ -102,6 +106,27 @@ public class Demo {
 						break;
 					case "endsector":
 						TriangulateThread.endSector = parseAsInt(value, "End sector", -1, TriangulateThread.endSector);
+						break;
+					case "drawgrid":
+						renderer.drawGrid = parseAsBoolean(value);
+						break;
+					case "backgroundcolor":
+						renderer.backgroundColor = parseAsColor(value, "Background color", renderer.backgroundColor);
+						break;
+					case "axiscolor":
+						renderer.axisColor = parseAsColor(value, "Axis color", renderer.axisColor);
+						break;
+					case "majorgridcolor":
+						renderer.gridColorMajor = parseAsColor(value, "Major grid color", renderer.gridColorMajor);
+						break;
+					case "minorgridcolor":
+						renderer.gridColorMinor = parseAsColor(value, "Minor grid color", renderer.gridColorMinor);
+						break;
+					case "majorgridsize":
+						renderer.gridSizeMajor = parseAsInt(value, "Major grid size", 1, renderer.gridSizeMajor);
+						break;
+					case "minorgridsize":
+						renderer.gridSizeMinor = parseAsInt(value, "Minor grid size", 1, renderer.gridSizeMinor);
 						break;
 				}
 			}
@@ -131,6 +156,28 @@ public class Demo {
 		} catch(NumberFormatException nfe) {
 			return Boolean.parseBoolean(value);
 		}
+	}
+	
+	private static Color parseAsColor(String value, String friendlyName, Color oldValue) {
+		int len = value.length();
+		boolean isShortenedForm = len == 4;
+		boolean ok = (len == 7 || isShortenedForm) && value.charAt(0) == '#';
+		if(ok) {
+			if(isShortenedForm) {
+				// some math after being converted to an int would probably be more efficient
+				// but this is probably simpler and more readable code
+				char r = value.charAt(1);
+				char g = value.charAt(2);
+				char b = value.charAt(3);
+				value = "#" + r + r + g + g + b + b;
+			}
+			try {
+				int rgb = Integer.parseInt(value.substring(1), 16);
+				return new Color(rgb);
+			} catch(NumberFormatException e) {}
+		}
+		System.err.println(friendlyName + " is not a valid color");
+		return oldValue;
 	}
 
 	private static void loadWads(String[] wadPaths) {
