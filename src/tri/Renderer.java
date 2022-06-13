@@ -24,22 +24,8 @@ import tri.types.Vertex;
 public class Renderer extends JComponent {
 	private static final int			DEFAULT_WIDTH	= 960;
 	private static final int			DEFAULT_HEIGHT	= 720;
-
-	public boolean						antialias		= false;
-	public boolean						drawGrid		= true;
-
-	public Color						backgroundColor	= Color.BLACK;
-	/** color of the X and Y axes */
-	public Color						axisColor		= Color.ORANGE;
-	/** color of a large grid square */
-	public Color						gridColorMajor	= Color.LIGHT_GRAY;
-	/** color of a small grid square */
-	public Color						gridColorMinor	= Color.DARK_GRAY;
-
-	/** size of a grid square */
-	public int							gridSizeMinor	= 64;
-	/** number of small grid squares in a large grid square */
-	public int							gridSizeMajor	= 8;
+	
+	public Config						config;
 
 	public double						offsetX			= 0;
 	public double						offsetY			= 0;
@@ -163,6 +149,9 @@ public class Renderer extends JComponent {
 
 	@Override
 	public void paint(Graphics g) {
+		// save the active config each frame so we don't potentially draw a frame with 2 different config states
+		config = Demo.getConfig();
+		
 		calculateVirtualBounds();
 
 		drawBackground(g);
@@ -175,10 +164,10 @@ public class Renderer extends JComponent {
 
 		drawSectors(g2);
 
-		Object hint = antialias ? RenderingHints.VALUE_ANTIALIAS_ON : RenderingHints.VALUE_ANTIALIAS_OFF;
+		Object hint = config.antialias ? RenderingHints.VALUE_ANTIALIAS_ON : RenderingHints.VALUE_ANTIALIAS_OFF;
 		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, hint);
 
-		if(drawGrid) {			
+		if(config.drawGrid) {			
 			drawGridlines(g2);
 		}
 		drawLines(g2);
@@ -191,7 +180,7 @@ public class Renderer extends JComponent {
 			int width = g.getFontMetrics().stringWidth(str);
 			int x = getWidth() - width - 5;
 			int y = getHeight() - 5;
-			g.setColor(backgroundColor);
+			g.setColor(config.backgroundColor);
 			g.drawString(str, x + 2, y + 2);
 			g.drawString(str, x - 2, y - 2);
 			g.setColor(Color.WHITE);
@@ -200,37 +189,31 @@ public class Renderer extends JComponent {
 	}
 
 	private void drawBackground(Graphics g) {
-		g.setColor(backgroundColor);
+		g.setColor(config.backgroundColor);
 		g.fillRect(0, 0, getWidth(), getHeight());
-	}
-
-	private Color gridLineColor(int val) {
-		if(val == 0) return axisColor;
-		if((val / gridSizeMinor) % gridSizeMajor == 0) return gridColorMajor;
-		return gridColorMinor;
 	}
 
 	private void drawGridlines(Graphics2D g) {
 		g.setStroke(new BasicStroke((float) scale));
 
 		int gridStart = (int) virtualLeft;
-		gridStart -= (gridStart % gridSizeMinor);
+		gridStart -= (gridStart % config.gridSizeMinor);
 		Line2D.Float line = new Line2D.Float();
 		line.y1 = (float) virtualTop;
 		line.y2 = (float) virtualBottom;
-		for(int x = gridStart; x <= virtualRight; x += gridSizeMinor) {
+		for(int x = gridStart; x <= virtualRight; x += config.gridSizeMinor) {
 			line.x1 = line.x2 = x;
-			g.setColor(gridLineColor(x));
+			g.setColor(config.gridLineColor(x));
 			g.draw(line);
 		}
 
 		gridStart = (int) virtualBottom;
-		gridStart -= (gridStart % gridSizeMinor);
+		gridStart -= (gridStart % config.gridSizeMinor);
 		line.x1 = (float) virtualLeft;
 		line.x2 = (float) virtualRight;
-		for(int y = gridStart; y <= virtualTop; y += gridSizeMinor) {
+		for(int y = gridStart; y <= virtualTop; y += config.gridSizeMinor) {
 			line.y1 = line.y2 = y;
-			g.setColor(gridLineColor(y));
+			g.setColor(config.gridLineColor(y));
 			g.draw(line);
 		}
 	}

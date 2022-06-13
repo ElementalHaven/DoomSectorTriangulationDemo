@@ -26,10 +26,10 @@ public class WADFile {
 	}
 	
 	public class Lump {
-		public final int index;
-		public final String name;
-		public final ByteBuffer data;
-		
+		public final int		index;
+		public final String		name;
+		public final ByteBuffer	data;
+
 		private Lump(int index, ByteBuffer buf) {
 			this.index = index;
 			
@@ -56,18 +56,19 @@ public class WADFile {
 			return WADFile.this;
 		}
 		
+		@Override
 		public String toString() {
 			return String.format("%s[len=0x%04X]", name, data == null ? 0 : data.capacity());
 		}
 	}
-	
+
 	// memory is plentiful enough nowadays that it should be fine to store entire wads
-	private ByteBuffer data;
-	private Lump[] lumps;
-	public final String path;
-	
-	public WADFile parent;
-	
+	private ByteBuffer	data;
+	private Lump[]		lumps;
+	public final String	path;
+
+	public WADFile		parent;
+
 	public WADFile(String path) throws IOException {
 		this.path = path;
 		File f = new File(path);
