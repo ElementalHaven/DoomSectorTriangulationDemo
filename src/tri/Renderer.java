@@ -2,20 +2,23 @@ package tri;
 
 import java.awt.*;
 
-import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
-
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Line2D;
 import java.awt.geom.Rectangle2D;
-
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.Action;
+import javax.swing.ActionMap;
+import javax.swing.InputMap;
 import javax.swing.JComponent;
+import javax.swing.KeyStroke;
+import javax.swing.SwingUtilities;
 
 import tri.types.Line;
 import tri.types.RenderableSector;
@@ -25,11 +28,41 @@ public class Renderer extends JComponent {
 	private static final int			DEFAULT_WIDTH	= 960;
 	private static final int			DEFAULT_HEIGHT	= 720;
 	
+	private class GridLines extends Renderable {
+
+		@Override
+		public void render(Graphics2D g, Config config) {
+			g.setStroke(new BasicStroke((float) scale));
+
+			int gridStart = (int) virtualLeft;
+			gridStart -= (gridStart % config.gridSizeMinor);
+			Line2D.Float line = new Line2D.Float();
+			line.y1 = (float) virtualTop;
+			line.y2 = (float) virtualBottom;
+			for(int x = gridStart; x <= virtualRight; x += config.gridSizeMinor) {
+				line.x1 = line.x2 = x;
+				g.setColor(config.gridLineColor(x));
+				g.draw(line);
+			}
+
+			gridStart = (int) virtualBottom;
+			gridStart -= (gridStart % config.gridSizeMinor);
+			line.x1 = (float) virtualLeft;
+			line.x2 = (float) virtualRight;
+			for(int y = gridStart; y <= virtualTop; y += config.gridSizeMinor) {
+				line.y1 = line.y2 = y;
+				g.setColor(config.gridLineColor(y));
+				g.draw(line);
+			}
+		}
+		
+	}
+	
 	public Config						config;
 
-	public double						offsetX			= 0;
-	public double						offsetY			= 0;
-	public double						scale			= 1;
+	private double						offsetX			= 0;
+	private double						offsetY			= 0;
+	private double						scale			= 1;
 
 	private double						virtualWidth	= DEFAULT_WIDTH;
 	private double						virtualHeight	= DEFAULT_HEIGHT;
@@ -42,15 +75,20 @@ public class Renderer extends JComponent {
 	public final List<Vertex>			vertices		= new ArrayList<>();
 	public final List<Line>				lines			= new ArrayList<>();
 	public final List<RenderableSector>	sectors			= new ArrayList<>();
+	private final List<RenderLayer>		layers			= new ArrayList<>();
+	private final RenderLayer			baseLayer		= new RenderLayer(0);
+	private final GridLines				gridLines		= new GridLines();
 
-	private Line2D.Float				lineShape		= new Line2D.Float();
-	private Rectangle2D.Float			vertShape		= new Rectangle2D.Float();
-
+	private boolean						directRendering	= false;
+	private BufferedImage				image;
+	private int							width			= -1;
+	private int							height			= -1;
+	private boolean						doFullRebuild	= true;
 	private boolean						showCoords		= false;
 	private int							mouseX, mouseY;
 
-	Renderer() {
-		setPreferredSize(new Dimension(960, 720));
+	public Renderer() {
+		setPreferredSize(new Dimension(DEFAULT_WIDTH, DEFAULT_HEIGHT));
 		MouseAdapter adapter = new MouseAdapter() {
 			private int x, y;
 
@@ -89,7 +127,7 @@ public class Renderer extends JComponent {
 
 				mouseX = (int) ((e.getX() - getWidth() / 2) * scale + offsetX);
 				mouseY = (int) ((getHeight() / 2 - e.getY()) * scale + offsetY);
-				repaint();
+				repaint(true);
 			}
 
 			@Override
@@ -101,90 +139,179 @@ public class Renderer extends JComponent {
 		addMouseListener(adapter);
 		addMouseWheelListener(adapter);
 		addMouseMotionListener(adapter);
-		addKeyListener(new KeyAdapter() {
-			@Override
-			public void keyPressed(KeyEvent e) {
-				switch(e.getKeyCode()) {
-					case KeyEvent.VK_R:
-						Demo.triangulate();
-						break;
-					case KeyEvent.VK_C:
-						Demo.loadConfig();
-						repaint();
-						break;
-					case KeyEvent.VK_E:
-						resetMap();
-						repaint();
-						break;
-					case KeyEvent.VK_S:
-						Demo.forceStop();
-						break;
-				}
-			}
-		});
 		setFocusable(true);
 		enableEvents(KeyEvent.KEY_EVENT_MASK);
+		
+		// can't call directly because subclass variables aren't initialized yet
+		// not sure if there's a better way than this or asking the user to do it themself
+		SwingUtilities.invokeLater(() -> addDefaultItems());
+	}
+	
+	public void addKeyBinding(KeyBinding binding) {
+		setKeyBinding(binding.keystroke, binding.id, binding.action);
+	}
+	
+	private void setKeyBinding(KeyStroke key, String id, Action action) {
+		ActionMap actions = getActionMap();
+		// looking at the implementation, it seems there's a 1 to 1 mapping
+		actions.put(id, action);
+		
+		InputMap inputs = getInputMap();
+		Object existing = inputs.get(key);
+		// no need to update if the binding hasnt changed
+		if(existing == null || !existing.equals(id)) {
+			// remove existing binding if a different one existed
+			KeyStroke[] keys = inputs.keys();
+			if(keys != null) {
+				for(KeyStroke stroke : keys) {
+					Object obj = inputs.get(stroke);
+					if(id.equals(obj)) {
+						inputs.remove(stroke);
+					}
+				}
+			}
+			inputs.put(key, id);
+		}
+	}
+	
+	/**
+	 * Adds items that should always be present to the renderer.
+	 * This is done during initialization and after clearing.
+	 * Subclassed renderers that override this method
+	 * should make sure to call {@code super.addDefaultItems()}
+	 */
+	protected void addDefaultItems() {
+		layers.add(baseLayer);
+		baseLayer.objects.add(gridLines);
 	}
 
-	public void resetMap() {
+	/**
+	 * Removes all existing renderable items from this renderer.
+	 * Afterwards, always present items are readded automatically.
+	 * Subclassed renderers that override this method
+	 * should make sure to call {@code super.clear()}
+	 */
+	public void clear() {
 		vertices.clear();
 		lines.clear();
-		sectors.clear();
+		layers.clear();
+		baseLayer.clear();
+		addDefaultItems();
+	}
+	
+	public double getScale() {
+		return scale;
 	}
 
 	public void positionAndScaleToFitContent(Rectangle contentBounds) {
 		// TODO get bounding box of all vertices and make sure viewport can view all of them comfortably.
 		// should also be paired with a config option of whether this should be done or not
 	}
+	
+	private void handlePotentialResize() {
+		int width = getWidth();
+		int height = getHeight();
 
-	private void calculateVirtualBounds() {
-		virtualWidth = getWidth() * scale;
-		virtualHeight = getHeight() * scale;
+		if(this.width != width || this.height != height) {
+			this.width = width;
+			this.height = height;
+			image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+			doFullRebuild = true;
+		}
+	}
+
+	private void calculateVirtualBounds() {	
+		virtualWidth = width * scale;
+		virtualHeight = height * scale;
 		virtualTop = offsetY + virtualHeight / 2.0;
 		virtualRight = offsetX + virtualWidth / 2.0;
 		virtualBottom = virtualTop - virtualHeight;
 		virtualLeft = virtualRight - virtualWidth;
 		virtualBounds.setRect(virtualLeft, virtualBottom, virtualWidth, virtualHeight);
 	}
+	
+	@Override
+	public void repaint() {
+		repaint(false);
+	}
+	
+	public void repaint(boolean uiUpdateOnly) {
+		doFullRebuild |= !uiUpdateOnly;
+		super.repaint();
+	}
+	
+	private void drawScene(Graphics g) {
+		if(directRendering) {
+			drawSceneToWindow((Graphics2D) g);
+		} else {
+			if(doFullRebuild) {
+				drawSceneToImage();
+				doFullRebuild = false;
+			}
+			
+			// XXX this could be optimized so that only part of the image is rendered if a full rebuild wasn't done.
+			// just the part under the text would be redrawn
+			g.drawImage(image, 0, 0, null);
+		}
+	}
+	
+	private void drawSceneToImage() {
+		Graphics2D g2 = image.createGraphics();
+		drawSceneImpl(g2);
+	}
+	
+	private void drawSceneToWindow(Graphics2D g) {
+		AffineTransform transform = g.getTransform();
+		drawSceneImpl(g);
+		g.setTransform(transform);
+	}
+	
+	private void drawSceneImpl(Graphics2D g) {
+		drawBackground(g);
+		
+		// scale and positioning
+		g.translate(width / 2.0, height / 2.0);
+		g.scale(1 / scale, -1 / scale);
+		g.translate(-offsetX, -offsetY);
+		
+		boolean antialiased = config.antialias;
+		Object hint = antialiased ? RenderingHints.VALUE_ANTIALIAS_ON : RenderingHints.VALUE_ANTIALIAS_OFF;
+		g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, hint);
+		
+		for(int i = 0; i < layers.size(); i++) {
+			RenderLayer layer = layers.get(i);
+			antialiased = layer.render(g, config, virtualBounds, antialiased);
+		}
+	}
+	
+	private void drawCoords(Graphics2D g) {
+		Object hint = config.antialias ? RenderingHints.VALUE_ANTIALIAS_ON : RenderingHints.VALUE_ANTIALIAS_OFF;
+		g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, hint);
+		
+		String str = String.format("(%d, %d)", mouseX, mouseY);
+		int width = g.getFontMetrics().stringWidth(str);
+		int x = getWidth() - width - 5;
+		int y = getHeight() - 5;
+		g.setColor(config.backgroundColor);
+		g.drawString(str, x + 2, y + 2);
+		g.drawString(str, x - 2, y - 2);
+		g.setColor(Color.WHITE);
+		g.drawString(str, x, y);
+	}
 
 	@Override
 	public void paint(Graphics g) {
 		// save the active config each frame so we don't potentially draw a frame with 2 different config states
 		config = Demo.getConfig();
+		gridLines.visible = config.drawGrid;
 		
+		handlePotentialResize();
 		calculateVirtualBounds();
 
-		drawBackground(g);
-
-		Graphics2D g2 = (Graphics2D) g;
-		AffineTransform trans = g2.getTransform();
-		g2.translate(getWidth() / 2.0, getHeight() / 2.0);
-		g2.scale(1 / scale, -1 / scale);
-		g2.translate(-offsetX, -offsetY);
-
-		drawSectors(g2);
-
-		Object hint = config.antialias ? RenderingHints.VALUE_ANTIALIAS_ON : RenderingHints.VALUE_ANTIALIAS_OFF;
-		g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, hint);
-
-		if(config.drawGrid) {			
-			drawGridlines(g2);
-		}
-		drawLines(g2);
-		drawVertices(g2);
-
-		g2.setTransform(trans);
+		drawScene(g);
 
 		if(showCoords) {
-			String str = String.format("(%d, %d)", mouseX, mouseY);
-			int width = g.getFontMetrics().stringWidth(str);
-			int x = getWidth() - width - 5;
-			int y = getHeight() - 5;
-			g.setColor(config.backgroundColor);
-			g.drawString(str, x + 2, y + 2);
-			g.drawString(str, x - 2, y - 2);
-			g.setColor(Color.WHITE);
-			g.drawString(str, x, y);
+			drawCoords((Graphics2D) g);
 		}
 	}
 
@@ -192,83 +319,51 @@ public class Renderer extends JComponent {
 		g.setColor(config.backgroundColor);
 		g.fillRect(0, 0, getWidth(), getHeight());
 	}
-
-	private void drawGridlines(Graphics2D g) {
-		g.setStroke(new BasicStroke((float) scale));
-
-		int gridStart = (int) virtualLeft;
-		gridStart -= (gridStart % config.gridSizeMinor);
-		Line2D.Float line = new Line2D.Float();
-		line.y1 = (float) virtualTop;
-		line.y2 = (float) virtualBottom;
-		for(int x = gridStart; x <= virtualRight; x += config.gridSizeMinor) {
-			line.x1 = line.x2 = x;
-			g.setColor(config.gridLineColor(x));
-			g.draw(line);
-		}
-
-		gridStart = (int) virtualBottom;
-		gridStart -= (gridStart % config.gridSizeMinor);
-		line.x1 = (float) virtualLeft;
-		line.x2 = (float) virtualRight;
-		for(int y = gridStart; y <= virtualTop; y += config.gridSizeMinor) {
-			line.y1 = line.y2 = y;
-			g.setColor(config.gridLineColor(y));
-			g.draw(line);
-		}
-	}
-
-	private void drawSectors(Graphics2D g) {
-		// Not using a foreach so we don't have the console spammed with concurrent modification issues
-		for(int i = 0; i < sectors.size(); i++) {
-			RenderableSector sector = sectors.get(i);
-			if(virtualBounds.intersects(sector.bounds)) {
-				sector.paint(g);
+	
+	private int searchLayers(int layer) {
+		// layers should be small enough that we won't see that much gain out of binary searching
+		int i;
+		for(i = 0; i < layers.size(); i++) {
+			RenderLayer rlayer = layers.get(i);
+			if(rlayer.layerId == layer) {
+				return i;
+			}
+			if(layer < rlayer.layerId) {
+				break;
 			}
 		}
+		return -(i + 1);
 	}
-
-	private void drawLines(Graphics2D g) {
-		g.setStroke(new BasicStroke((float) (2 * scale)));
-		for(int i = 0; i < lines.size(); i++) {
-			Line line = lines.get(i);
-			if(line.color == null) continue;
-
-			lineShape.setLine(line.start.x, line.start.y, line.end.x, line.end.y);
-
-			g.setColor(line.color);
-			g.draw(lineShape);
-			lineShape.setLine(line.midX, line.midY, line.midX + line.tagX * scale, line.midY + line.tagY * scale);
-			g.draw(lineShape);
-		}
+	
+	/**
+	 * Adds a renderable item to the default layer(0)
+	 * @param r The object to be added
+	 */
+	public void add(Renderable r) {
+		add(r, 0);
 	}
-
-	private void drawVertices(Graphics2D g) {
-		float halfSize = (float) (2 * scale);
-		vertShape.width = vertShape.height = (float) (4 * scale);
-		for(int i = 0; i < vertices.size(); i++) {
-			Vertex v = vertices.get(i);
-			if(v.color == null) continue;
-
-			vertShape.x = v.x - halfSize;
-			vertShape.y = v.y - halfSize;
-
-			g.setColor(v.color);
-			g.fill(vertShape);
+	
+	/**
+	 * Adds a new item to be rendered to the given layer.
+	 * Grid lines are drawn immediately before layer 0.
+	 * Items should therefore be added to layers around that fact.
+	 * @param r The object to be added
+	 * @param layer The layer to add the object to
+	 */
+	public void add(Renderable r, int layer) {
+		if(r == null) {
+			throw new IllegalArgumentException("Object can not be null");
 		}
-	}
-
-	public void addLine(Line line) {
-		if(!lines.contains(line)) {
-			lines.add(line);
-			addVertex(line.start);
-			addVertex(line.end);
+		int idx = searchLayers(layer);
+		RenderLayer rlayer;
+		if(idx < 0) {
+			rlayer = new RenderLayer(layer);
+			idx = -(idx + 1);
+			layers.add(idx, rlayer);
+		} else {
+			rlayer = layers.get(idx);
 		}
-	}
-
-	public void addVertex(Vertex v) {
-		if(!vertices.contains(v)) {
-			vertices.add(v);
-		}
+		// assuming that the user is making sure not to add items twice
+		rlayer.objects.add(r);
 	}
 }

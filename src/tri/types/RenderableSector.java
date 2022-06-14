@@ -11,19 +11,23 @@ import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 
-public class RenderableSector {
+import tri.Config;
+import tri.Renderable;
+
+public class RenderableSector extends Renderable {
 	private static final Rectangle2D	ANCHOR		= new Rectangle2D.Float(0, 0, Sector.FLAT_SIZE, -Sector.FLAT_SIZE);
 	private static final Polygon		SHAPE		= new Polygon();
 
-	public final Rectangle				bounds		= new Rectangle(0, 0, -1, -1);
 	private final List<Triangle>		triangles	= new ArrayList<>();
 	private final TexturePaint			paint;
 	
 	public RenderableSector(BufferedImage flat) {
 		paint = new TexturePaint(flat, ANCHOR);
+		bounds = new Rectangle(0, 0, -1, -1);
 	}
 
-	public void paint(Graphics2D g) {
+	@Override
+	public void render(Graphics2D g, Config config) {
 		g.setPaint(paint);
 		
 		for(int i = 0; i < triangles.size(); i++) {
@@ -43,5 +47,10 @@ public class RenderableSector {
 		bounds.add(tri.a.x, tri.a.y);
 		bounds.add(tri.b.x, tri.b.y);
 		bounds.add(tri.c.x, tri.c.y);
+	}
+	
+	@Override
+	public boolean canBeAntialiased() {
+		return false;
 	}
 }

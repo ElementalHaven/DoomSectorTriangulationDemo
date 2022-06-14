@@ -80,7 +80,7 @@ public class Vertex {
 		linesToProcess.remove(line);
 		//System.out.printf("    Removed line from %s(%d total)\n", this, linesToProcess.size());
 		if(linesToProcess.isEmpty()) {
-			Demo.renderer.vertices.remove(this);
+			Demo.renderer.removeVertex(this);
 			sector.vertsToProcess.remove(this);
 		}
 	}

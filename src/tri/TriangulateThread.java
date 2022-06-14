@@ -209,7 +209,7 @@ public class TriangulateThread extends Thread {
 		ByteBuffer bufLines = getMapLumpData(map, "LINEDEFS");
 		ByteBuffer bufSides = getMapLumpData(map, "SIDEDEFS");
 
-		Demo.renderer.resetMap();
+		Demo.renderer.clear();
 		update();
 		Thread.sleep(3 * sleepTime);
 		
@@ -439,7 +439,7 @@ public class TriangulateThread extends Thread {
 		}
 		for(Vertex v : points) {
 			if(v.lines.isEmpty()) {
-				Demo.renderer.vertices.remove(v);
+				Demo.renderer.removeVertex(v);
 			}
 		}
 		update();
@@ -470,7 +470,8 @@ public class TriangulateThread extends Thread {
 		for(int sectorIdx = startSec; sectorIdx < endSec; sectorIdx++) {
 			//System.out.println("Sector " + sectorIdx);
 			Sector sector = sectors.get(sectorIdx);
-			Demo.renderer.sectors.add(sector.renderable);
+			Demo.renderer.add(sector.renderable, -1);
+			//Demo.renderer.sectors.add(sector.renderable);
 			
 			//System.out.println("  Prepping for triangulation");
 			sector.prepForTriangulation();

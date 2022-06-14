@@ -101,7 +101,7 @@ public class Line {
 		start.removeLine(this, sector);
 		end.removeLine(this, sector);
 		sector.linesToProcess.remove(this);
-		Demo.renderer.lines.remove(this);
+		Demo.renderer.removeLine(this);
 	}
 	
 	public boolean bordersSector(Sector sector) {

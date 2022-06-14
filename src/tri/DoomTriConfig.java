@@ -1,6 +1,17 @@
 package tri;
 
 public class DoomTriConfig extends Config {
+	private KeyBinding	bindingRun		= new KeyBinding("R", "DOOMTRI:RUN", () -> Demo.triangulate());
+	private KeyBinding	bindingSuspend	= new KeyBinding("S", "DOOMTRI:PAUSE", () -> Demo.suspend());
+	
+	@Override
+	public void init(Renderer renderer) {
+		super.init(renderer);
+		
+		renderer.addKeyBinding(bindingRun);
+		renderer.addKeyBinding(bindingSuspend);
+	}
+	
 	@Override
 	public boolean handleConfigLine(String key, String value) {
 		switch(key) {
@@ -39,11 +50,29 @@ public class DoomTriConfig extends Config {
 			case "endsector":
 				TriangulateThread.endSector = valueAsInt(value, "End sector", -1, TriangulateThread.endSector);
 				break;
+			case "keypause":
+				updateKeyBinding(bindingSuspend, "Pause key", value);
+				break;
+			case "keyrun":
+				updateKeyBinding(bindingRun, "Run key", value);
+				break;
 			default:
 				return false;
 		}
 		return true;
 	}
 	
+	@Override
+	public Config createCopy() {
+		DoomTriConfig config = new DoomTriConfig();
+		copyTo(config);
+		return config;
+	}
 	
+	public void copyTo(DoomTriConfig config) {
+		super.copyTo(config);
+		
+		config.bindingRun = bindingRun;
+		config.bindingSuspend = bindingSuspend;
+	}
 }

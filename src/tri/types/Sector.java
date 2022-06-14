@@ -37,7 +37,7 @@ public class Sector {
 		if(generated) {
 			//System.out.println("  Creating new line for triangulation");
 			line.calculateAngle();
-			Demo.renderer.lines.add(line);
+			Demo.renderer.addLine(line);
 			linesToProcess.add(line);
 			a.addLine(line, this);
 			b.addLine(line, this);

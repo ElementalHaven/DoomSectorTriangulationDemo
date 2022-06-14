@@ -11,12 +11,14 @@ import tri.types.WADFile;
 public class Demo {
 	public static final String			WINDOW_TITLE	= "Sector Triangulation Demo";
 	
+	private static TriangulateThread	thread;
 	private static Config				config			= new DoomTriConfig();
-	public static Renderer				renderer;
+	public static DoomTriRenderer		renderer;	
+	
 	private static Map<String, WADFile>	wads			= new HashMap<>();
 	public static WADFile				topWad;
-	private static TriangulateThread	thread;
 	public static String				mapName;
+	
 
 	/* FIXME certain maps still break for unknown reasons
 	 * DOOM.WAD
@@ -37,8 +39,9 @@ public class Demo {
 	 */
 
 	public static void main(String[] args) {
-		renderer = new Renderer();
-		
+		renderer = new DoomTriRenderer();
+
+		config.init(renderer);
 		config.load();
 		
 		JFrame frame = new JFrame();
@@ -80,7 +83,7 @@ public class Demo {
 		}
 	}
 	
-	public static void forceStop() {
+	public static void suspend() {
 		if(thread != null) {
 			thread.toggleSuspend();
 		}
