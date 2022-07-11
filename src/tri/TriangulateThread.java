@@ -3,6 +3,7 @@ package tri;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Frame;
+import java.awt.Rectangle;
 import java.awt.image.BufferedImage;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -216,17 +217,38 @@ public class TriangulateThread extends Thread {
 
 		bufVerts.clear();
 		System.out.println("Map contains " + (bufVerts.capacity() / 4) + " vertices");
+
+		// load vertices
 		while(bufVerts.hasRemaining()) {
 			Vertex v = new Vertex(bufVerts);
 			v.id = points.size();
 			int idx = points.indexOf(v);
 			if(idx == -1) {
 				points.add(v);
-				Demo.renderer.addVertex(v);
 			} else {
 				System.err.println("Found duplicate vertex @ " + v + ". Merging with previous instance");
 				points.add(points.get(idx));
 			}
+		}
+
+		// fit viewport to map
+		// TODO have a config option of whether this should be done or not
+		{
+			Rectangle bounds = new Rectangle(0, 0, -1, -1);
+			for(Vertex v : points) {
+				bounds.add(v.x, v.y);
+			}
+			// add some margins
+			bounds.width += 16;
+			bounds.height += 16;
+			bounds.x -= 8;
+			bounds.y -= 8;
+			Demo.renderer.positionAndScaleToFitContent(bounds);
+		}
+		
+		// add vertices to viewport
+		for(Vertex v : points) {
+			Demo.renderer.addVertex(v);
 			update(vertexSleepTime);
 		}
 		// ensure we've done an update at least once for all the vertices

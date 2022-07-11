@@ -1,15 +1,24 @@
 package tri;
 
-import java.awt.*;
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Rectangle;
+import java.awt.RenderingHints;
 
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
+
 import java.awt.geom.AffineTransform;
 import java.awt.geom.Line2D;
 import java.awt.geom.Rectangle2D;
+
 import java.awt.image.BufferedImage;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,10 +28,6 @@ import javax.swing.InputMap;
 import javax.swing.JComponent;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
-
-import tri.types.Line;
-import tri.types.RenderableSector;
-import tri.types.Vertex;
 
 public class Renderer extends JComponent {
 	private static final int			DEFAULT_WIDTH	= 960;
@@ -58,7 +63,7 @@ public class Renderer extends JComponent {
 		
 	}
 	
-	public Config						config;
+	protected Config					config;
 
 	private double						offsetX			= 0;
 	private double						offsetY			= 0;
@@ -72,12 +77,10 @@ public class Renderer extends JComponent {
 	private double						virtualLeft		= virtualRight - virtualWidth;
 	private Rectangle2D					virtualBounds	= new Rectangle2D.Double(virtualLeft, virtualBottom, virtualWidth, virtualHeight);
 
-	public final List<Vertex>			vertices		= new ArrayList<>();
-	public final List<Line>				lines			= new ArrayList<>();
-	public final List<RenderableSector>	sectors			= new ArrayList<>();
 	private final List<RenderLayer>		layers			= new ArrayList<>();
 	private final RenderLayer			baseLayer		= new RenderLayer(0);
 	private final GridLines				gridLines		= new GridLines();
+	private final int					yMirror;
 
 	private boolean						directRendering	= false;
 	private BufferedImage				image;
@@ -125,8 +128,8 @@ public class Renderer extends JComponent {
 			public void mouseMoved(MouseEvent e) {
 				showCoords = true;
 
-				mouseX = (int) ((e.getX() - getWidth() / 2) * scale + offsetX);
-				mouseY = (int) ((getHeight() / 2 - e.getY()) * scale + offsetY);
+				mouseX = (int) ((e.getX() - width / 2) * scale + offsetX);
+				mouseY = (int) ((e.getY() - height / 2) * yMirror * scale + offsetY);
 				repaint(true);
 			}
 
@@ -141,6 +144,8 @@ public class Renderer extends JComponent {
 		addMouseMotionListener(adapter);
 		setFocusable(true);
 		enableEvents(KeyEvent.KEY_EVENT_MASK);
+		
+		yMirror = isPositiveYUp() ? -1 : 1;
 		
 		// can't call directly because subclass variables aren't initialized yet
 		// not sure if there's a better way than this or asking the user to do it themself
@@ -192,15 +197,28 @@ public class Renderer extends JComponent {
 	 * should make sure to call {@code super.clear()}
 	 */
 	public void clear() {
-		vertices.clear();
-		lines.clear();
 		layers.clear();
 		baseLayer.clear();
 		addDefaultItems();
 	}
 	
-	public double getScale() {
+	/**
+	 * Gets the scale that the viewport is being rendered with
+	 * for purposes of scaling objects whose size should remain constant in the viewport.
+	 */
+	public final double getScale() {
 		return scale;
+	}
+	
+	/**
+	 * Returns a value indicating if units at the top of the viewport show have
+	 * a greater Y value than units at the bottom of the viewport.<br>
+	 * This is used for initial viewport scaling,
+	 * but it should also be used for scaling text and textures if the value is not known ahead of time
+	 * @return
+	 */
+	public boolean isPositiveYUp() {
+		return true;
 	}
 
 	public void positionAndScaleToFitContent(Rectangle contentBounds) {
@@ -271,7 +289,7 @@ public class Renderer extends JComponent {
 		
 		// scale and positioning
 		g.translate(width / 2.0, height / 2.0);
-		g.scale(1 / scale, -1 / scale);
+		g.scale(1 / scale, yMirror / scale);
 		g.translate(-offsetX, -offsetY);
 		
 		boolean antialiased = config.antialias;

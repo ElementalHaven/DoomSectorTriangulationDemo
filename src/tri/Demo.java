@@ -58,13 +58,6 @@ public class Demo {
 	public static Config getConfig() {
 		return config;
 	}
-	
-	public static void loadConfig() {
-		Config parsingConfig = new DoomTriConfig();
-		config.copyTo(parsingConfig);
-		parsingConfig.load();
-		config = parsingConfig;
-	}
 
 	static void loadWads(String[] wadPaths) {
 		wads.clear();

@@ -28,7 +28,6 @@ That is something that probably won't be done for a while by me, if at all.
 
 ## Possible Improvements
 
-- Making keys configurable
 - Merging adjacent linedefs with identical properties(or identical with one of them flipped)
 - Relocating and scaling viewport to fit the entirety of the map on start of triangulation if a config option is set
 - Drawing sky textures where appropriate
