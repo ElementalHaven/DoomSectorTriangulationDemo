@@ -37,6 +37,7 @@ public class TriangulateThread extends Thread {
 	public static int			startSector		= 0;
 	public static int			endSector		= -1;
 	public static boolean		renderLit		= false;
+	public static boolean		fitViewport		= true;
 
 	private static int toColor(byte[] pal, int off) {
 		int r = pal[off] & 0xFF;
@@ -232,8 +233,7 @@ public class TriangulateThread extends Thread {
 		}
 
 		// fit viewport to map
-		// TODO have a config option of whether this should be done or not
-		{
+		if(fitViewport) {
 			Rectangle bounds = new Rectangle(0, 0, -1, -1);
 			for(Vertex v : points) {
 				bounds.add(v.x, v.y);

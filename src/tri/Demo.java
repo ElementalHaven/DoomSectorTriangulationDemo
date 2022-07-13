@@ -6,6 +6,7 @@ import java.util.Map;
 
 import javax.swing.JFrame;
 
+import tdf.Config;
 import tri.types.WADFile;
 
 public class Demo {

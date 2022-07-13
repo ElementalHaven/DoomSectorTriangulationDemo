@@ -5,6 +5,9 @@ import java.awt.geom.Rectangle2D;
 import java.util.ArrayList;
 import java.util.List;
 
+import tdf.Renderable;
+import tdf.Config;
+
 import tri.types.Vertex;
 
 public class Vertices extends Renderable {

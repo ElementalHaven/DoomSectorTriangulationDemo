@@ -1,5 +1,7 @@
 package tri;
 
+import tdf.Renderer;
+
 import tri.types.Line;
 import tri.types.Vertex;
 

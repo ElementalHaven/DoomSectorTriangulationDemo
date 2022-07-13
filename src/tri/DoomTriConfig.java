@@ -1,5 +1,9 @@
 package tri;
 
+import tdf.Config;
+import tdf.KeyBinding;
+import tdf.Renderer;
+
 public class DoomTriConfig extends Config {
 	private KeyBinding	bindingRun		= new KeyBinding("R", "DOOMTRI:RUN", () -> Demo.triangulate());
 	private KeyBinding	bindingSuspend	= new KeyBinding("S", "DOOMTRI:PAUSE", () -> Demo.suspend());
@@ -24,6 +28,10 @@ public class DoomTriConfig extends Config {
 				break;
 			case "renderlit":
 				TriangulateThread.renderLit = valueAsBoolean(value);
+				break;
+			case "fitviewport":
+			case "fitviewporttomap":
+				TriangulateThread.fitViewport = valueAsBoolean(value);
 				break;
 			case "vertextime":
 				TriangulateThread.vertexSleepTime = valueAsInt(value, "Vertex sleep time", 0, TriangulateThread.vertexSleepTime);
@@ -61,12 +69,10 @@ public class DoomTriConfig extends Config {
 		}
 		return true;
 	}
-	
+
 	@Override
-	public Config createCopy() {
-		DoomTriConfig config = new DoomTriConfig();
-		copyTo(config);
-		return config;
+	public Config newInstance() {
+		return new DoomTriConfig();
 	}
 	
 	public void copyTo(DoomTriConfig config) {

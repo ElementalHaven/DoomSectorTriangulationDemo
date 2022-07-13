@@ -6,7 +6,8 @@ Various settings, including WADs, map, delays between each action, and more are 
 
 ## Requirements
 
-Requires JDK 8 or newer to build / Java 8 or newer to run
+- JDK 8 or newer to build / Java 8 or newer to run
+- [Topdown Framework](https://github.com/ElementalHaven/Topdown-Framework) as the core of the rendering & config system
 
 ## Controls
 
@@ -29,7 +30,6 @@ That is something that probably won't be done for a while by me, if at all.
 ## Possible Improvements
 
 - Merging adjacent linedefs with identical properties(or identical with one of them flipped)
-- Relocating and scaling viewport to fit the entirety of the map on start of triangulation if a config option is set
 - Drawing sky textures where appropriate
 - Adding config options for the color of each line type during triangulation (inactive sector, active sector, generated line, starting line, etc)
 - The fix for broken IWAD data (and probably a number of old PWADs) mentioned above

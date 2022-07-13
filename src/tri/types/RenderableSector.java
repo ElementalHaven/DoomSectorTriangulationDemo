@@ -11,8 +11,8 @@ import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 
-import tri.Config;
-import tri.Renderable;
+import tdf.Config;
+import tdf.Renderable;
 
 public class RenderableSector extends Renderable {
 	private static final Rectangle2D	ANCHOR		= new Rectangle2D.Float(0, 0, Sector.FLAT_SIZE, -Sector.FLAT_SIZE);
