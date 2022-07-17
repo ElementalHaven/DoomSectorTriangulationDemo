@@ -9,12 +9,13 @@ Various settings, including WADs, map, delays between each action, and more are 
 - JDK 8 or newer to build / Java 8 or newer to run
 - [Topdown Framework](https://github.com/ElementalHaven/Topdown-Framework) as the core of the rendering & config system
 
-## Controls
+## Default Controls
 
 - **C**: Reload the config file. All but lighting, the WADs specified, and the current map specified will take effect immediately.
 - **E**: Clear/empty/erase the viewport of any map data.
 - **R**: Start/restart triangulation of the current map.
 - **S**: Suspend/resume triangulation.
+- **G**: Toggle grid.
 - **Mouse Drag**: Move the viewport.
 - **Mousewheel**: Zoom in/out.
 
